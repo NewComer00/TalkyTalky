@@ -37,12 +37,13 @@ def main():
     client_socket.connect((HOST, PORT))
     print("======== Successfully Connected to GPT4ALL Backend ========")
 
+    audio = pyaudio.PyAudio()
+    stream = audio.open(format=FORMAT, channels=CHANNELS,
+                        rate=RATE, input=True,
+                        frames_per_buffer=CHUNK)
     print(colored("======== Holding SPACE KEY to Record ========", 'green'))
     while True:
-        audio = pyaudio.PyAudio()
-        stream = audio.open(format=FORMAT, channels=CHANNELS,
-                            rate=RATE, input=True,
-                            frames_per_buffer=CHUNK)
+        stream.start_stream()
         frames = []
 
         # start recording if key is pressed
@@ -53,8 +54,6 @@ def main():
             print(colored('>', 'blue'), end='', flush=True)
 
         stream.stop_stream()
-        stream.close()
-        audio.terminate()
 
         # Save the recorded audio to a WAV file
         if len(frames) > 0:
@@ -85,6 +84,8 @@ def main():
             pyttsx3.speak(answer)
             print('')
 
+    stream.close()
+    audio.terminate()
 
 if __name__ == "__main__":
     main()

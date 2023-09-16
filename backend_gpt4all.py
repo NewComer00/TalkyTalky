@@ -6,6 +6,8 @@ from select import select
 HOST = '127.0.0.1'  # Loopback address for local communication
 PORT = 12345       # Port to listen on
 
+model = GPT4All("orca-mini-3b.ggmlv3.q4_0.bin")
+
 # Create a socket object
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -23,7 +25,6 @@ while True:
         break
 print(f"Connected to {client_address}")
 
-model = GPT4All("orca-mini-3b.ggmlv3.q4_0.bin")
 with model.chat_session():
 
     # Communication loop
