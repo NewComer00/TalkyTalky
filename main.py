@@ -1,4 +1,3 @@
-import pyttsx3
 from faster_whisper import WhisperModel
 import keyboard
 import wave
@@ -7,8 +6,11 @@ import socket
 from termcolor import colored
 
 # Define server settings
-HOST = '127.0.0.1'  # Server's IP address
-PORT = 12345       # Port the server is listening on
+LLM_HOST = '127.0.0.1'  # Server's IP address
+LLM_PORT = 12345       # Port the server is listening on
+
+ACTOR_HOST = '127.0.0.1'
+ACTOR_PORT = 12346
 
 # Constants for audio settings
 FORMAT = pyaudio.paInt16
@@ -30,12 +32,15 @@ def speech_to_text(wav_file):
 
 
 def main():
-    # Create a socket object
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print("======== Connecting to GPT4ALL Backend ========")
-    # Connect to the server
-    client_socket.connect((HOST, PORT))
-    print("======== Successfully Connected to GPT4ALL Backend ========")
+    llm_backend = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print("======== Connecting to LLM Backend ========")
+    llm_backend.connect((LLM_HOST, LLM_PORT))
+    print("======== Successfully Connected to LLM Backend ========")
+
+    actor_backend = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print("======== Connecting to ACTOR Backend ========")
+    actor_backend.connect((ACTOR_HOST, ACTOR_PORT))
+    print("======== Successfully Connected to ACTOR Backend ========")
 
     audio = pyaudio.PyAudio()
     stream = audio.open(format=FORMAT, channels=CHANNELS,
@@ -68,7 +73,7 @@ def main():
             print('')  # newline for the progress bar
             prompt = speech_to_text(OUTPUT_FILE).strip()
             # Send a message to the server
-            client_socket.send(prompt.encode('utf-8'))
+            llm_backend.send(prompt.encode('utf-8'))
 
             # print my prompt words
             me = 'ME  >> '
@@ -78,14 +83,18 @@ def main():
                 print(colored(me, 'red'), '[EMPTY SPEECH]')
 
             # Receive a response from the server
-            answer = client_socket.recv(1024).decode('utf-8').strip()
+            answer = llm_backend.recv(1024).decode('utf-8').strip()
+
             her = 'BOT >> '
             print(colored(her, 'green'), answer)
-            pyttsx3.speak(answer)
             print('')
+
+            # Send the answer to the actor backend
+            actor_backend.send(answer.encode('utf-8'))
 
     stream.close()
     audio.terminate()
+
 
 if __name__ == "__main__":
     main()
