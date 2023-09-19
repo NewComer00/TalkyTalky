@@ -1,6 +1,6 @@
-# created by virtualenv automaticall
 /Scripts
 /Lib
 /share
 /pyvenv.cfg
 /audio.wav
+__pycache__/

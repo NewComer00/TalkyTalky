@@ -2,13 +2,13 @@ import os
 import time
 import enum
 import socket
-import datetime
 import threading
 from select import select
 import pyttsx3
+from base import ServerBase
 
 
-class ActionServer:
+class ActionServer(ServerBase):
 
     OPENSEEFACE_FRAME_LEN = 1785
     OPENSEEFACE_ACTION_DIR = r'actions/openseeface/'
@@ -70,23 +70,9 @@ class ActionServer:
                 break
         self._server_print(f"Connected to {self.client_ip}")
 
-    # Perform different actions based on self.actor_state
-    def action_daemon(self):
-        delay = 1 / self.action_fps
-        while True:
-            for action in ActionServer.Action:
-                if self.actor_state is action:
-                    for frame in self.openseeface_actions[action]:
-                        if self.actor_state is not action:
-                            break
-                        self.openseeface_client_socket.sendto(
-                            frame, (self.openseeface_client_ip,
-                                    self.openseeface_client_port))
-                        time.sleep(delay)
-                    break
-
     def run(self):
-        self.action_daemon_thread = threading.Thread(target=self.action_daemon)
+        self.action_daemon_thread = threading.Thread(
+            target=self._action_daemon)
         self.action_daemon_thread.daemon = True
         self.action_daemon_thread.start()
 
@@ -101,12 +87,6 @@ class ActionServer:
                 self.actor_state = ActionServer.Action.SPEAKING
                 pyttsx3.speak(bot_answer)
                 self.actor_state = ActionServer.Action.IDLE
-
-    def _server_print(self, msg):
-        class_name = self.__class__.__name__
-        obj_id = id(self)
-        time_stamp = datetime.datetime.now(datetime.timezone.utc)
-        print(f"[{time_stamp}][{class_name}@{obj_id}] {msg}")
 
     def _init_actions(self):
         # List all action files in the directory
@@ -134,6 +114,21 @@ class ActionServer:
                     frames.append(frame)
                 action_frames[action] = frames
         return action_frames
+
+    # Perform different actions based on self.actor_state
+    def _action_daemon(self):
+        delay = 1 / self.action_fps
+        while True:
+            for action in ActionServer.Action:
+                if self.actor_state is action:
+                    for frame in self.openseeface_actions[action]:
+                        if self.actor_state is not action:
+                            break
+                        self.openseeface_client_socket.sendto(
+                            frame, (self.openseeface_client_ip,
+                                    self.openseeface_client_port))
+                        time.sleep(delay)
+                    break
 
 
 if __name__ == '__main__':

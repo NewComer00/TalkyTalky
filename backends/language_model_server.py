@@ -1,10 +1,10 @@
 import socket
-import datetime
 from select import select
 from gpt4all import GPT4All
+from base import ServerBase
 
 
-class LanguageModelServer:
+class LanguageModelServer(ServerBase):
     def __init__(self,
                  model_name="orca-mini-3b.ggmlv3.q4_0.bin", infer_device='cpu',
                  ip='127.0.0.1', port=12345, recv_buflen=10240):
@@ -56,12 +56,6 @@ class LanguageModelServer:
                     response = self.model.generate(prompt=recv_data, temp=0)
                     self.client_socket.send(response.encode('utf-8'))
                     self._server_print(f"Send >> {response}")
-
-    def _server_print(self, msg):
-        class_name = self.__class__.__name__
-        obj_id = id(self)
-        time_stamp = datetime.datetime.now(datetime.timezone.utc)
-        print(f"[{time_stamp}][{class_name}@{obj_id}] {msg}")
 
 
 if __name__ == '__main__':
