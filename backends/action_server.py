@@ -18,7 +18,7 @@ class ActionServer(ServerBase):
         SPEAKING = 'speaking'
 
     def __init__(self,
-                 action_fps=20,
+                 action_fps=24,
                  openseeface_client_ip='127.0.0.1',
                  openseeface_client_port=11573,
                  ip='127.0.0.1', port=12346, recv_buflen=10240):

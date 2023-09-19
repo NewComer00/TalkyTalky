@@ -1,9 +1,11 @@
-from faster_whisper import WhisperModel
-import keyboard
+import time
 import wave
-import pyaudio
 import socket
+import pyaudio
+import keyboard
 from termcolor import colored
+from faster_whisper import WhisperModel
+
 
 # Define server settings
 LLM_HOST = '127.0.0.1'  # Server's IP address
@@ -47,18 +49,22 @@ def main():
                         rate=RATE, input=True,
                         frames_per_buffer=CHUNK)
     print(colored("======== Holding SPACE KEY to Record ========", 'green'))
-    while True:
-        stream.start_stream()
-        frames = []
 
+    frames = []
+    while True:
+        frames.clear()
         # start recording if key is pressed
         while keyboard.is_pressed('space'):
+            if stream.is_stopped():
+                stream.start_stream()
+
             data = stream.read(CHUNK)
             frames.append(data)
             # recording progress bar
             print(colored('>', 'blue'), end='', flush=True)
 
-        stream.stop_stream()
+        if not stream.is_stopped():
+            stream.stop_stream()
 
         # Save the recorded audio to a WAV file
         if len(frames) > 0:
@@ -92,6 +98,8 @@ def main():
             # Send the answer to the actor backend
             actor_backend.send(answer.encode('utf-8'))
 
+        # Add some delay to reduce CPU usage
+        time.sleep(0.2)
     stream.close()
     audio.terminate()
 
