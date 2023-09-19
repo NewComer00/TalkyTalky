@@ -1,43 +1,70 @@
-from gpt4all import GPT4All
 import socket
+import datetime
 from select import select
+from gpt4all import GPT4All
 
-# Define server settings
-HOST = '127.0.0.1'  # Loopback address for local communication
-PORT = 12345       # Port to listen on
 
-model = GPT4All("orca-mini-3b.ggmlv3.q4_0.bin")
+class LanguageModelServer:
+    def __init__(self,
+                 model_name="orca-mini-3b.ggmlv3.q4_0.bin", infer_device='cpu',
+                 ip='127.0.0.1', port=12345, recv_buflen=10240):
 
-# Create a socket object
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server_print("Initializing the server...")
 
-# Bind the socket to the host and port
-server_socket.bind((HOST, PORT))
+        self.port = port
+        self.server_ip = ip
+        self.server_socket = None
+        self.client_ip = None
+        self.client_socket = None
+        self.recv_buflen = recv_buflen
 
-# Listen for incoming connections
-print(f"Server is listening on {HOST}:{PORT}")
-while True:
-    server_socket.listen()
-    # Accept incoming connections
-    ready, _, _ = select([server_socket], [], [], 1) #Timeout set to 1 seconds
-    if ready:
-        client_socket, client_address = server_socket.accept()
-        break
-print(f"Connected to {client_address}")
+        self._server_print(
+            f"Loading Language model {model_name} using {infer_device}")
+        self.model = GPT4All(model_name, device=infer_device)
 
-with model.chat_session():
+    def __del__(self):
+        if self.server_socket:
+            self.server_socket.close()
+        if self.client_socket:
+            self.client_socket.close()
 
-    # Communication loop
-    while True:
-        data = client_socket.recv(1024).decode('utf-8')  # Receive data from the client
-        if not data:
-            pass
-        print(f"Received: {data}")
+    def connect(self, listen_timeout=1):
+        self.server_socket = socket.socket(
+            socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.bind((self.server_ip, self.port))
 
-        response = model.generate(prompt=data, temp=0)
-        # Send a response to the client
-        client_socket.send(response.encode('utf-8'))
+        self._server_print(f"Listening on {self.server_ip}:{self.port}")
+        while True:
+            self.server_socket.listen()
+            # Accept incoming connections
+            ready, _, _ = select([self.server_socket], [], [], listen_timeout)
+            if ready:
+                self.client_socket, self.client_ip = \
+                    self.server_socket.accept()
+                break
+        self._server_print(f"Connected to {self.client_ip}")
 
-# Clean up
-client_socket.close()
-server_socket.close()
+    def run(self):
+        with self.model.chat_session():
+            # Communication loop
+            while True:
+                recv_data = self.client_socket.recv(
+                    self.recv_buflen).decode('utf-8')
+                if recv_data:
+                    self._server_print(
+                        f"Received from {self.client_ip} << {recv_data}")
+                    response = self.model.generate(prompt=recv_data, temp=0)
+                    self.client_socket.send(response.encode('utf-8'))
+                    self._server_print(f"Send >> {response}")
+
+    def _server_print(self, msg):
+        class_name = self.__class__.__name__
+        obj_id = id(self)
+        time_stamp = datetime.datetime.now(datetime.timezone.utc)
+        print(f"[{time_stamp}][{class_name}@{obj_id}] {msg}")
+
+
+if __name__ == '__main__':
+    lms = LanguageModelServer()
+    lms.connect()
+    lms.run()
