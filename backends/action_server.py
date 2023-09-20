@@ -3,9 +3,13 @@ import time
 import enum
 import socket
 import threading
-from select import select
 import pyttsx3
 from base import ServerBase
+
+
+class Action(enum.Enum):
+    IDLE = 'idle'
+    SPEAKING = 'speaking'
 
 
 class ActionServer(ServerBase):
@@ -13,27 +17,16 @@ class ActionServer(ServerBase):
     OPENSEEFACE_FRAME_LEN = 1785
     OPENSEEFACE_ACTION_DIR = r'actions/openseeface/'
 
-    class Action(enum.Enum):
-        IDLE = 'idle'
-        SPEAKING = 'speaking'
-
     def __init__(self,
                  action_fps=24,
                  openseeface_client_ip='127.0.0.1',
                  openseeface_client_port=11573,
                  ip='127.0.0.1', port=12346, recv_buflen=10240):
 
-        self._server_print("Initializing the server...")
-
-        self.port = port
-        self.server_ip = ip
-        self.server_socket = None
-        self.client_ip = None
-        self.client_socket = None
-        self.recv_buflen = recv_buflen
+        super().__init__(ip=ip, port=port, recv_buflen=recv_buflen)
 
         # the role is in the idle state by default
-        self.actor_state = ActionServer.Action.IDLE
+        self.actor_state = Action.IDLE
         self.action_fps = action_fps
         self.action_daemon_thread = None
 
@@ -45,30 +38,12 @@ class ActionServer(ServerBase):
         self.openseeface_actions = self._init_actions()
 
     def __del__(self):
+        super().__del__()
+
         if self.openseeface_client_socket:
             self.openseeface_client_socket.close()
-        if self.server_socket:
-            self.server_socket.close()
-        if self.client_socket:
-            self.client_socket.close()
         if self.action_daemon_thread:
             self.action_daemon_thread.join()
-
-    def connect(self, listen_timeout=1):
-        self.server_socket = socket.socket(
-            socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.bind((self.server_ip, self.port))
-
-        self._server_print(f"Listening on {self.server_ip}:{self.port}")
-        while True:
-            self.server_socket.listen()
-            # Accept incoming connections
-            ready, _, _ = select([self.server_socket], [], [], listen_timeout)
-            if ready:
-                self.client_socket, self.client_ip = \
-                    self.server_socket.accept()
-                break
-        self._server_print(f"Connected to {self.client_ip}")
 
     def run(self):
         self.action_daemon_thread = threading.Thread(
@@ -84,9 +59,9 @@ class ActionServer(ServerBase):
             if bot_answer:
                 self._server_print(
                     f"Received from {self.client_ip} << {bot_answer}")
-                self.actor_state = ActionServer.Action.SPEAKING
+                self.actor_state = Action.SPEAKING
                 pyttsx3.speak(bot_answer)
-                self.actor_state = ActionServer.Action.IDLE
+                self.actor_state = Action.IDLE
 
     def _init_actions(self):
         # List all action files in the directory
@@ -98,8 +73,8 @@ class ActionServer(ServerBase):
         action_frames = {}
         for file in action_files:
             # Filename should be the valid value of Enum Action
-            if any((file == a.value) for a in ActionServer.Action):
-                action = ActionServer.Action(file)
+            if any((file == a.value) for a in Action):
+                action = Action(file)
             else:
                 continue
 
@@ -119,7 +94,7 @@ class ActionServer(ServerBase):
     def _action_daemon(self):
         delay = 1 / self.action_fps
         while True:
-            for action in ActionServer.Action:
+            for action in Action:
                 if self.actor_state is action:
                     for frame in self.openseeface_actions[action]:
                         if self.actor_state is not action:
