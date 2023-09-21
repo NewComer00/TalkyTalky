@@ -1,11 +1,24 @@
 from faster_whisper import WhisperModel
-from base import ServerBase
+from service.base import ServerBase, ClientBase
+
+
+class Speech2TextClient(ClientBase):
+    def __init__(self,
+                 server_ip='127.0.0.1', server_port=12344, recv_buflen=4096):
+
+        super().__init__(server_ip=server_ip, server_port=server_port,
+                         recv_buflen=recv_buflen)
+
+    def get_text(self, wav_file_path):
+        self.socket.sendall(wav_file_path.encode('utf-8'))
+        answer = self.socket.recv(self.recv_buflen).decode('utf-8')
+        return answer
 
 
 class Speech2TextServer(ServerBase):
     def __init__(self,
                  model_name="base.en", infer_device='cpu', compute_type='int8',
-                 ip='127.0.0.1', port=12344, recv_buflen=1024):
+                 ip='127.0.0.1', port=12344, recv_buflen=4096):
 
         super().__init__(ip=ip, port=port, recv_buflen=recv_buflen)
 
@@ -19,16 +32,15 @@ class Speech2TextServer(ServerBase):
         while True:
             recv_data = self.client_socket.recv(
                 self.recv_buflen).decode('utf-8')
-            if recv_data:
-                self._server_log(
-                    f"Received from {self.client_ip} << {recv_data}")
+            self._server_log(
+                f"Received from {self.client_ip} << {recv_data}")
 
-                wav_file_path = recv_data
-                speech_text = self._speech_to_text(wav_file_path)
-                response = speech_text
+            wav_file_path = recv_data
+            speech_text = self._speech_to_text(wav_file_path)
+            response = speech_text
 
-                self.client_socket.send(response.encode('utf-8'))
-                self._server_log(f"Send >> {response}")
+            self.client_socket.send(response.encode('utf-8'))
+            self._server_log(f"Send >> {response}")
 
     def _speech_to_text(self, wav_file_path):
         segments, _ = self.model.transcribe(wav_file_path)

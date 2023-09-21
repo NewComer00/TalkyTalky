@@ -1,49 +1,56 @@
 import os
 import time
 import wave
-import socket
 import tempfile
+from multiprocessing import Process
+
 import pyaudio
 import keyboard
 from termcolor import colored
 
-# Define server settings
-S2T_HOST = '127.0.0.1'
-S2T_PORT = 12344
-
-LLM_HOST = '127.0.0.1'
-LLM_PORT = 12345
-
-ACTOR_HOST = '127.0.0.1'
-ACTOR_PORT = 12346
-
-# Constants for audio settings
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-RATE = 44100
-CHUNK = 1024
+from service.action import ActionServer, ActionClient
+from service.language_model import LanguageModelServer, LanguageModelClient
+from service.speech2text import Speech2TextServer, Speech2TextClient
 
 
-def main():
-    s2t_backend = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print("======== Connecting to S2T Backend ========")
-    s2t_backend.connect((S2T_HOST, S2T_PORT))
-    print("======== Successfully Connected to S2T Backend ========")
+def run_action_server():
+    acts = ActionServer()
+    acts.connect()
+    acts.run()
 
-    llm_backend = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print("======== Connecting to LLM Backend ========")
-    llm_backend.connect((LLM_HOST, LLM_PORT))
-    print("======== Successfully Connected to LLM Backend ========")
 
-    actor_backend = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print("======== Connecting to ACTOR Backend ========")
-    actor_backend.connect((ACTOR_HOST, ACTOR_PORT))
-    print("======== Successfully Connected to ACTOR Backend ========")
+def run_language_server():
+    lms = LanguageModelServer()
+    lms.connect()
+    lms.run()
+
+
+def run_speech2text_server():
+    s2ts = Speech2TextServer()
+    s2ts.connect()
+    s2ts.run()
+
+
+def interact():
+    speech2text_client = Speech2TextClient()
+    language_model_client = LanguageModelClient()
+    action_client = ActionClient()
+
+    speech2text_client.connect()
+    language_model_client.connect()
+    action_client.connect()
+
+    # Constants for audio settings
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 1
+    RATE = 44100
+    CHUNK = 1024
 
     audio = pyaudio.PyAudio()
     stream = audio.open(format=FORMAT, channels=CHANNELS,
                         rate=RATE, input=True,
                         frames_per_buffer=CHUNK)
+
     print(colored("======== Holding SPACE KEY to Record ========", 'green'))
     frames = []
     while True:
@@ -70,13 +77,10 @@ def main():
             wf.close()
 
             # speech to text
-            print('')  # newline for the progress bar
-            s2t_backend.send(wav_path.encode('utf-8'))
-            prompt = s2t_backend.recv(1024).decode('utf-8').strip()
+            print('')
+            prompt = speech2text_client.get_text(wav_path)
             os.close(wav_fp)
             os.remove(wav_path)
-
-            llm_backend.send(prompt.encode('utf-8'))
 
             # print my prompt words
             me = 'ME  >> '
@@ -86,15 +90,15 @@ def main():
                 print(colored(me, 'red'), '[EMPTY SPEECH]')
                 continue
 
-            # Receive a response from the server
-            answer = llm_backend.recv(1024).decode('utf-8').strip()
+            # get answer from the prompt
+            answer = language_model_client.get_answer(prompt)
 
             her = 'BOT >> '
             print(colored(her, 'green'), answer)
             print('')
 
-            # Send the answer to the actor backend
-            actor_backend.send(answer.encode('utf-8'))
+            # make reaction to the answer
+            action_client.react_to(answer)
 
         time.sleep(0.1)
 
@@ -103,4 +107,16 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    proc_action_server = Process(target=run_action_server)
+    proc_action_server.daemon = True
+    proc_action_server.start()
+
+    proc_language_server = Process(target=run_language_server)
+    proc_language_server.daemon = True
+    proc_language_server.start()
+
+    proc_speech2text_server = Process(target=run_speech2text_server)
+    proc_speech2text_server.daemon = True
+    proc_speech2text_server.start()
+
+    interact()

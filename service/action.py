@@ -4,12 +4,23 @@ import enum
 import socket
 import threading
 import pyttsx3
-from base import ServerBase
+from service.base import ServerBase, ClientBase
 
 
 class Action(enum.Enum):
     IDLE = 'idle'
     SPEAKING = 'speaking'
+
+
+class ActionClient(ClientBase):
+    def __init__(self,
+                 server_ip='127.0.0.1', server_port=12346, recv_buflen=4096):
+
+        super().__init__(server_ip=server_ip, server_port=server_port,
+                         recv_buflen=recv_buflen)
+
+    def react_to(self, sentence):
+        self.socket.sendall(sentence.encode('utf-8'))
 
 
 class ActionServer(ServerBase):
@@ -21,7 +32,7 @@ class ActionServer(ServerBase):
                  action_fps=24,
                  openseeface_client_ip='127.0.0.1',
                  openseeface_client_port=11573,
-                 ip='127.0.0.1', port=12346, recv_buflen=10240):
+                 ip='127.0.0.1', port=12346, recv_buflen=4096):
 
         super().__init__(ip=ip, port=port, recv_buflen=recv_buflen)
 

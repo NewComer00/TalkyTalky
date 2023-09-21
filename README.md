@@ -35,16 +35,11 @@ pip install -r requirements.txt
 ```
 
 ## Usage
-First, please open **two different terminals**, and ensure that the virtual environment has been **activated** in both of them.
+First, please ensure that the virtual environment has been **activated**.
 
-In one of the terminal, start the GPT4All backend. If it's the first time the backend is started, it will automatically start to download the offline chatting model.
+Start the App. If it's the first time you launch the App, it will automatically start to download the offline models.
 ```sh
-python backend_gpt4all.py
-```
-
-After the GPT4All backend is started, switch to the other terminal and launch the main script. If it's the first time the main script is started, it will automatically start to download the offline speech-to-text model.
-```sh
-python main.py
+python app.py
 ```
 
 **Hold the SPACE KEY** to say whatever you want, and **release the SPACE KEY** after you finished. Enjoy the chatting!

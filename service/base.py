@@ -15,14 +15,26 @@ def service_log(obj, msg):
 
 
 class ClientBase:
-    def __init__(self, server_ip, server_port):
+    def __init__(self, server_ip, server_port, recv_buflen):
         self._client_log("Initializing the client...")
         self.server_ip = server_ip
         self.server_port = server_port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.recv_buflen = recv_buflen
 
-    def connect(self):
-        self.socket.connect((self.server_ip, self.server_port))
+    def __del__(self):
+        if self.socket:
+            self.socket.close()
+
+    def connect(self, retry=5):
+        for i in range(retry):
+            try:
+                self.socket.connect((self.server_ip, self.server_port))
+            except Exception as e:
+                self._client_log(f'{e} (Retry={i+1}/{retry})')
+                continue
+            break
+
         self._client_log("Connected to server")
 
     def _client_log(self, msg):
