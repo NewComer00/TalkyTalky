@@ -7,9 +7,31 @@ import datetime
 from select import select
 
 
+def service_log(obj, msg):
+    class_name = obj.__class__.__name__
+    obj_id = id(obj)
+    time_stamp = datetime.datetime.now(datetime.timezone.utc)
+    print(f"[{time_stamp}][{class_name}@{obj_id}] {msg}")
+
+
+class ClientBase:
+    def __init__(self, server_ip, server_port):
+        self._client_log("Initializing the client...")
+        self.server_ip = server_ip
+        self.server_port = server_port
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    def connect(self):
+        self.socket.connect((self.server_ip, self.server_port))
+        self._client_log("Connected to server")
+
+    def _client_log(self, msg):
+        service_log(self, msg)
+
+
 class ServerBase:
     def __init__(self, ip, port, recv_buflen):
-        self._server_print("Initializing the server...")
+        self._server_log("Initializing the server...")
         self.port = port
         self.server_ip = ip
         self.server_socket = None
@@ -28,7 +50,7 @@ class ServerBase:
             socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.server_ip, self.port))
 
-        self._server_print(f"Listening on {self.server_ip}:{self.port}")
+        self._server_log(f"Listening on {self.server_ip}:{self.port}")
         while True:
             self.server_socket.listen()
             # Accept incoming connections
@@ -37,13 +59,10 @@ class ServerBase:
                 self.client_socket, self.client_ip = \
                     self.server_socket.accept()
                 break
-        self._server_print(f"Connected to {self.client_ip}")
+        self._server_log(f"Connected to {self.client_ip}")
 
     def run(self):
         pass
 
-    def _server_print(self, msg):
-        class_name = self.__class__.__name__
-        obj_id = id(self)
-        time_stamp = datetime.datetime.now(datetime.timezone.utc)
-        print(f"[{time_stamp}][{class_name}@{obj_id}] {msg}")
+    def _server_log(self, msg):
+        service_log(self, msg)

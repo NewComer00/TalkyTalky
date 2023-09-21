@@ -9,7 +9,7 @@ class LanguageModelServer(ServerBase):
 
         super().__init__(ip=ip, port=port, recv_buflen=recv_buflen)
 
-        self._server_print(
+        self._server_log(
             f"Loading Language model {model_name} using {infer_device}")
         self.model = GPT4All(model_name, device=infer_device)
 
@@ -20,11 +20,11 @@ class LanguageModelServer(ServerBase):
                 recv_data = self.client_socket.recv(
                     self.recv_buflen).decode('utf-8')
                 if recv_data:
-                    self._server_print(
+                    self._server_log(
                         f"Received from {self.client_ip} << {recv_data}")
                     response = self.model.generate(prompt=recv_data, temp=0)
                     self.client_socket.send(response.encode('utf-8'))
-                    self._server_print(f"Send >> {response}")
+                    self._server_log(f"Send >> {response}")
 
 
 if __name__ == '__main__':

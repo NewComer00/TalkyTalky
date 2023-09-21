@@ -15,7 +15,7 @@ class Action(enum.Enum):
 class ActionServer(ServerBase):
 
     OPENSEEFACE_FRAME_LEN = 1785
-    OPENSEEFACE_ACTION_DIR = r'actions/openseeface/'
+    OPENSEEFACE_ACTION_DIR = r'action/openseeface/'
 
     def __init__(self,
                  action_fps=24,
@@ -57,7 +57,7 @@ class ActionServer(ServerBase):
                 self.recv_buflen).decode('utf-8')
 
             if bot_answer:
-                self._server_print(
+                self._server_log(
                     f"Received from {self.client_ip} << {bot_answer}")
                 self.actor_state = Action.SPEAKING
                 pyttsx3.speak(bot_answer)

@@ -9,7 +9,7 @@ class Speech2TextServer(ServerBase):
 
         super().__init__(ip=ip, port=port, recv_buflen=recv_buflen)
 
-        self._server_print(
+        self._server_log(
             f"Loading speech-to-text model {model_name} using {infer_device}")
         self.model = WhisperModel(model_name, device=infer_device,
                                   compute_type=compute_type)
@@ -20,7 +20,7 @@ class Speech2TextServer(ServerBase):
             recv_data = self.client_socket.recv(
                 self.recv_buflen).decode('utf-8')
             if recv_data:
-                self._server_print(
+                self._server_log(
                     f"Received from {self.client_ip} << {recv_data}")
 
                 wav_file_path = recv_data
@@ -28,7 +28,7 @@ class Speech2TextServer(ServerBase):
                 response = speech_text
 
                 self.client_socket.send(response.encode('utf-8'))
-                self._server_print(f"Send >> {response}")
+                self._server_log(f"Send >> {response}")
 
     def _speech_to_text(self, wav_file_path):
         segments, _ = self.model.transcribe(wav_file_path)
