@@ -4,3 +4,4 @@ faster_whisper
 pyttsx3
 termcolor
 gpt4all
+edge-tts
