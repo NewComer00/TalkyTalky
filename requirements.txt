@@ -4,4 +4,5 @@ faster_whisper
 pyttsx3
 termcolor
 gpt4all
+playsound==1.2.2
 edge-tts
