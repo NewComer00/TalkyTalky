@@ -3,8 +3,8 @@ import time
 import enum
 import socket
 import threading
-import pyttsx3
 from service.base import ServerBase, ClientBase
+from service.text2speech import Text2SpeechClient
 
 
 class Action(enum.Enum):
@@ -29,12 +29,18 @@ class ActionServer(ServerBase):
     OPENSEEFACE_ACTION_DIR = r'action/openseeface/'
 
     def __init__(self,
-                 action_fps=24,
-                 openseeface_client_ip='127.0.0.1',
-                 openseeface_client_port=11573,
-                 ip='127.0.0.1', port=12346, recv_buflen=4096):
+                 action_fps: int = 24,
+                 tts_server_ip: str = '127.0.0.1',
+                 tts_server_port: int = 12347,
+                 openseeface_client_ip: str = '127.0.0.1',
+                 openseeface_client_port: int = 11573,
+                 ip: str = '127.0.0.1',
+                 port: str = 12346,
+                 recv_buflen: int = 4096):
 
         super().__init__(ip=ip, port=port, recv_buflen=recv_buflen)
+
+        self.tts_client = Text2SpeechClient(tts_server_ip, tts_server_port)
 
         # the role is in the idle state by default
         self.actor_state = Action.IDLE
@@ -56,6 +62,10 @@ class ActionServer(ServerBase):
         if self.action_daemon_thread:
             self.action_daemon_thread.join()
 
+    def connect(self, listen_timeout=1):
+        super().connect(listen_timeout)
+        self.tts_client.connect()
+
     def run(self):
         self.action_daemon_thread = threading.Thread(
             target=self._action_daemon)
@@ -70,8 +80,10 @@ class ActionServer(ServerBase):
             if bot_answer:
                 self._server_log(
                     f"Received from {self.client_ip} << {bot_answer}")
+                iter_reader = self.tts_client.read_aloud(bot_answer)
+                next(iter_reader)
                 self.actor_state = Action.SPEAKING
-                pyttsx3.speak(bot_answer)
+                next(iter_reader)
                 self.actor_state = Action.IDLE
 
     def _init_actions(self):

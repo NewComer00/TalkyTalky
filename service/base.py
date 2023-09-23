@@ -2,6 +2,7 @@
 # https://docs.python.org/3/library/socketserver.html
 # https://stackoverflow.com/questions/12233940/passing-extra-metadata-to-a-requesthandler-using-pythons-socketserver-and-child
 
+import time
 import socket
 import datetime
 from select import select
@@ -26,16 +27,17 @@ class ClientBase:
         if self.socket:
             self.socket.close()
 
-    def connect(self, retry=5):
+    def connect(self, retry=5, wait_time=1):
         for i in range(retry):
             try:
                 self.socket.connect((self.server_ip, self.server_port))
             except Exception as e:
                 self._client_log(f'{e} (Retry={i+1}/{retry})')
-                continue
-            break
-
-        self._client_log("Connected to server")
+                time.sleep(wait_time)
+            else:
+                self._client_log("Connected to server")
+                return
+        self._client_log("Failed to connect to server")
 
     def _client_log(self, msg):
         service_log(self, msg)

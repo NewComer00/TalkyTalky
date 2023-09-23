@@ -2,6 +2,7 @@ import os
 import time
 import wave
 import tempfile
+import argparse
 from multiprocessing import Process
 
 import pyaudio
@@ -11,6 +12,23 @@ from termcolor import colored
 from service.action import ActionServer, ActionClient
 from service.language_model import LanguageModelServer, LanguageModelClient
 from service.speech2text import Speech2TextServer, Speech2TextClient
+from service.text2speech import EdgettsServer, Pyttsx3Server
+
+
+def config():
+    parser = argparse.ArgumentParser(description="Text-to-Speech Engine")
+    parser.add_argument(
+        "--tts",
+        default="pyttsx3",
+        choices=["pyttsx3", "edge-tts"],
+        help="Select the text-to-speech engine \
+                (valid values: pyttsx3, edge-tts)",
+    )
+    args = parser.parse_args()
+
+    print(colored("======== Application Configuration ========", 'green'))
+    print(f"Text-to-Speech Engine: {args.tts}")
+    return args
 
 
 def run_action_server():
@@ -29,6 +47,17 @@ def run_speech2text_server():
     s2ts = Speech2TextServer()
     s2ts.connect()
     s2ts.run()
+
+
+def run_tts_server(tts_engine):
+    if tts_engine == "pyttsx3":
+        ttss = Pyttsx3Server()
+    elif tts_engine == "edge-tts":
+        ttss = EdgettsServer()
+    else:
+        ttss = Pyttsx3Server()
+    ttss.connect()
+    ttss.run()
 
 
 def interact():
@@ -107,6 +136,8 @@ def interact():
 
 
 if __name__ == "__main__":
+    app_cfg = config()
+
     proc_action_server = Process(target=run_action_server)
     proc_action_server.daemon = True
     proc_action_server.start()
@@ -118,5 +149,9 @@ if __name__ == "__main__":
     proc_speech2text_server = Process(target=run_speech2text_server)
     proc_speech2text_server.daemon = True
     proc_speech2text_server.start()
+
+    proc_tts_server = Process(target=run_tts_server, args=(app_cfg.tts,))
+    proc_tts_server.daemon = True
+    proc_tts_server.start()
 
     interact()

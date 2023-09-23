@@ -43,3 +43,8 @@ python app.py
 ```
 
 **Hold the SPACE KEY** to say whatever you want, and **release the SPACE KEY** after you finished. Enjoy the chatting!
+
+## Configuration
+| Description | Flag | Value | Default Value |
+| - | - | - | - |
+| Text-to-Speech Engine | `--tts` | `pyttsx3` or `edge-tts`(Internet connection required) | `pyttsx3` |
