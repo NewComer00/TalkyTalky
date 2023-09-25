@@ -45,7 +45,11 @@ class Speech2TextServer(ServerBase):
     def _speech_to_text(self, wav_file_path):
         segments, _ = self.model.transcribe(wav_file_path)
         segments = list(segments)
-        speech_text = ''.join([seg.text for seg in segments])
+        speech_text = ''.join([seg.text for seg in segments]).strip()
+
+        # deal with empty speech
+        if len(speech_text) == 0:
+            speech_text = "[EMPTY SPEECH]"
 
         return speech_text
 

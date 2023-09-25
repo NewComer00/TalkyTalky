@@ -28,6 +28,7 @@ def config():
 
     print(colored("======== Application Configuration ========", 'green'))
     print(f"Text-to-Speech Engine: {args.tts}")
+    print(colored("======== Application Configuration End ========", 'green'))
     return args
 
 
@@ -113,14 +114,12 @@ def interact():
 
             # print my prompt words
             me = 'ME  >> '
-            if len(prompt) > 0:
-                print(colored(me, 'red'), prompt)
+            print(colored(me, 'red'), prompt)
+            if prompt == '[EMPTY SPEECH]':
+                answer = "Sorry, I can't hear you clearly. Please try again."
             else:
-                print(colored(me, 'red'), '[EMPTY SPEECH]')
-                continue
-
-            # get answer from the prompt
-            answer = language_model_client.get_answer(prompt)
+                # get answer from the prompt
+                answer = language_model_client.get_answer(prompt)
 
             her = 'BOT >> '
             print(colored(her, 'green'), answer)

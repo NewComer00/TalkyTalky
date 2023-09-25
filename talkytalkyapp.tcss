@@ -1,0 +1,17 @@
+Screen {
+    layout: vertical;
+}
+
+ChatBox {
+    height: 0.7fr;
+    border: round green;
+    background: green 10%;
+    margin: 1;
+}
+
+LogBox {
+    height: 0.3fr;
+    border: round blue;
+    background: blue 10%;
+    margin: 1;
+}
