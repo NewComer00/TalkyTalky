@@ -21,6 +21,7 @@ class ActionClient(ClientBase):
 
     def react_to(self, sentence):
         self.socket.sendall(sentence.encode('utf-8'))
+        self.socket.recv(self.recv_buflen).decode('utf-8')
 
 
 class ActionServer(ServerBase):
@@ -85,6 +86,10 @@ class ActionServer(ServerBase):
                 self.actor_state = Action.SPEAKING
                 next(iter_reader)
                 self.actor_state = Action.IDLE
+
+                response = "[ACTION DONE]"
+                self.client_socket.sendall(response.strip().encode('utf-8'))
+                self._server_log(f"Send >> {response}")
 
     def _init_actions(self):
         # List all action files in the directory

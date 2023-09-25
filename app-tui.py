@@ -8,7 +8,6 @@ from multiprocessing import Process
 
 import pyaudio
 from termcolor import colored
-from textual import work
 from textual.widgets import Header, Footer
 from textual.widgets import Log, RichLog
 from textual.app import App, ComposeResult
@@ -81,7 +80,26 @@ class LogBox(Log):
 
 class TalkyTalkyApp(App):
 
-    CSS_PATH = "talkytalkyapp.tcss"
+    CSS = '''
+Screen {
+    layout: vertical;
+}
+
+ChatBox {
+    height: 0.7fr;
+    border: round green;
+    background: green 10%;
+    margin: 1;
+}
+
+LogBox {
+    height: 0.3fr;
+    border: round blue;
+    background: blue 10%;
+    margin: 1;
+}
+'''
+
     BINDINGS = [("d", "toggle_dark", "Toggle dark mode"),
                 ("q", "quit", "Quit")]
 
@@ -111,6 +129,8 @@ class TalkyTalkyApp(App):
 
         self.chatbox = None
         self.logbox = None
+        self.interact_worker = None
+        self.stop_interact = False
 
         super().__init__()
 
@@ -123,15 +143,15 @@ class TalkyTalkyApp(App):
     def on_ready(self) -> None:
         self.chatbox = self.query_one(ChatBox)
         self.logbox = self.query_one(LogBox)
-        self.logbox.begin_capture_print()
-        self.chatbox.write(
-            "[blink bold green]Press SPACE to start speaking[/blink bold green]")
-        self.chatbox.write(
-            "[blink bold green]Press SPACE again when finish speaking[/blink bold green]")
+        self.interact_worker = self.run_worker(
+            self.interact, thread=True, exclusive=True)
 
-        self.interact()
+        self.chatbox.write(
+            "[blink bold green]Press ENTER to start speaking[/blink bold green]")
+        self.chatbox.write(
+            "[blink bold green]Press ENTER again when finish speaking[/blink bold green]")
 
-    def key_space(self) -> None:
+    def key_enter(self) -> None:
         if not self.is_answering:
             if self.is_recording:
                 self.is_recording = False
@@ -142,15 +162,18 @@ class TalkyTalkyApp(App):
                 self.logbox.write_line(
                     "[ Start Recording ]")
 
+    def action_quit(self):
+        if self.interact_worker:
+            self.stop_interact = True
+            self.interact_worker.wait()
+        self.exit()
+
     def action_toggle_dark(self) -> None:
-        """An action to toggle dark mode."""
         self.dark = not self.dark
 
-    @work(exclusive=True, thread=True)
     def interact(self):
-
         frames = []
-        while True:
+        while not self.stop_interact:
             self.audio_stream.start_stream()
             frames.clear()
 
@@ -159,7 +182,7 @@ class TalkyTalkyApp(App):
                 data = self.audio_stream.read(self.audio_chunk)
                 frames.append(data)
                 # recording progress bar
-                self.logbox.write('>')
+                self.call_from_thread(self.logbox.write, '>')
 
             self.audio_stream.stop_stream()
 
@@ -177,14 +200,14 @@ class TalkyTalkyApp(App):
                 wf.close()
 
                 # speech to text
-                self.chatbox.write('')
+                self.call_from_thread(self.chatbox.write, '')
                 prompt = self.speech2text_client.get_text(wav_path)
                 os.close(wav_fp)
                 os.remove(wav_path)
 
                 # print my prompt words
                 me = '[bold red]ME  >> [/bold red]'
-                self.chatbox.write(me + prompt)
+                self.call_from_thread(self.chatbox.write, me + prompt)
                 if prompt == '[EMPTY SPEECH]':
                     answer = "Sorry, I can't hear you clearly. Please try again."
                 else:
@@ -192,7 +215,7 @@ class TalkyTalkyApp(App):
                     answer = self.language_model_client.get_answer(prompt)
 
                 her = '[bold green]BOT >> [/bold green]'
-                self.chatbox.write(her + answer)
+                self.call_from_thread(self.chatbox.write, her + answer)
                 self.chatbox.write('')
 
                 # make reaction to the answer

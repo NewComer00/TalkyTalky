@@ -39,7 +39,7 @@ First, please ensure that the virtual environment has been **activated**.
 
 Start the App. If it's the first time you launch the App, it will automatically start to download the offline models.
 ```sh
-python app.py
+python app-cli.py
 ```
 
 **Hold the SPACE KEY** to say whatever you want, and **release the SPACE KEY** after you finished. Enjoy the chatting!
