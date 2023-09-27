@@ -17,15 +17,26 @@ class Speech2TextClient(ClientBase):
 
 class Speech2TextServer(ServerBase):
     def __init__(self,
-                 model_name="base.en", infer_device='cpu', compute_type='int8',
+                 model_dir, model_name="base.en",
+                 infer_device='cpu', compute_type='int8',
                  ip='127.0.0.1', port=12344, recv_buflen=4096):
 
         super().__init__(ip=ip, port=port, recv_buflen=recv_buflen)
 
         self._server_log(
             f"Loading speech-to-text model {model_name} using {infer_device}")
-        self.model = WhisperModel(model_name, device=infer_device,
-                                  compute_type=compute_type)
+        try:
+            # we first try to use the local model
+            self.model = WhisperModel(model_name, download_root=model_dir,
+                                      device=infer_device,
+                                      compute_type=compute_type,
+                                      local_files_only=True)
+        except FileNotFoundError:
+            self.model = WhisperModel(model_name, download_root=model_dir,
+                                      device=infer_device,
+                                      compute_type=compute_type,
+                                      local_files_only=False)
+
 
     def run(self):
         # Communication loop

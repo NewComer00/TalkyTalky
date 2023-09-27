@@ -1,3 +1,4 @@
+import os
 from gpt4all import GPT4All
 from service.base import ServerBase, ClientBase
 
@@ -16,7 +17,7 @@ class LanguageModelClient(ClientBase):
 
 
 class LanguageModelServer(ServerBase):
-    def __init__(self,
+    def __init__(self, model_dir,
                  model_name="orca-mini-3b.ggmlv3.q4_0.bin", infer_device='cpu',
                  ip='127.0.0.1', port=12345, recv_buflen=4096):
 
@@ -24,7 +25,15 @@ class LanguageModelServer(ServerBase):
 
         self._server_log(
             f"Loading Language model {model_name} using {infer_device}")
-        self.model = GPT4All(model_name, device=infer_device)
+
+        os.makedirs(model_dir, exist_ok=True)
+        try:
+            # try to check if the model has been downloaded
+            self.model = GPT4All(model_name, model_path=model_dir,
+                                 device=infer_device, allow_download=False)
+        except ValueError:
+            self.model = GPT4All(model_name, model_path=model_dir,
+                                 device=infer_device, allow_download=True)
 
     def run(self):
         with self.model.chat_session():

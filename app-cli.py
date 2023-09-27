@@ -1,14 +1,17 @@
 import os
+import sys
 import time
 import wave
 import tempfile
 import argparse
+from typing import Optional
 from multiprocessing import Process
 
 import pyaudio
 import keyboard
 from termcolor import colored
 
+from service.base import ServerBase
 from service.action import ActionServer, ActionClient
 from service.language_model import LanguageModelServer, LanguageModelClient
 from service.speech2text import Speech2TextServer, Speech2TextClient
@@ -16,49 +19,72 @@ from service.text2speech import EdgettsServer, Pyttsx3Server
 
 
 def config():
-    parser = argparse.ArgumentParser(description="Text-to-Speech Engine")
+    parser = argparse.ArgumentParser(description="Talky Talky Chatbot App")
+
     parser.add_argument(
-        "--tts",
+        "--noecho-server-log",
+        action="store_true",
+        dest="noecho_server_log",
+        help="Do not print the stdout of servers to terminal",
+    )
+
+    parser.add_argument(
+        "--tts.engine",
         default="pyttsx3",
         choices=["pyttsx3", "edge-tts"],
+        dest="tts_engine",
         help="Select the text-to-speech engine \
                 (valid values: pyttsx3, edge-tts)",
     )
+
+    parser.add_argument(
+        "--stt.model_dir",
+        default="model/speech_to_text/",
+        dest="stt_model_dir",
+        help="The directory to store the speech-to-text models",
+    )
+
+    parser.add_argument(
+        "--lm.model_dir",
+        default="model/language_model/",
+        dest="lm_model_dir",
+        help="The directory to store the language models",
+    )
+
     args = parser.parse_args()
 
     print(colored("======== Application Configuration ========", 'green'))
-    print(f"Text-to-Speech Engine: {args.tts}")
-    print(colored("======== Application Configuration End ========", 'green'))
+    for argname, argvalue in vars(args).items():
+        print(colored(f"{argname}:\t\t{argvalue}", 'green'))
     return args
 
 
-def run_action_server():
-    acts = ActionServer()
-    acts.connect()
-    acts.run()
-
-
-def run_language_server():
-    lms = LanguageModelServer()
-    lms.connect()
-    lms.run()
-
-
-def run_speech2text_server():
-    s2ts = Speech2TextServer()
-    s2ts.connect()
-    s2ts.run()
-
-
-def run_tts_server(tts_engine):
-    if tts_engine == "pyttsx3":
-        ttss = Pyttsx3Server()
-    elif tts_engine == "edge-tts":
-        ttss = EdgettsServer()
+def run_server(ServerClass: ServerBase,
+               log_redirect_to: Optional[str],
+               **kwargs):
+    if log_redirect_to == "stdout":
+        sys.stdout = sys.__stdout__
+    elif log_redirect_to is None:
+        sys.stdout = None
     else:
-        ttss = Pyttsx3Server()
-    ttss.connect()
-    ttss.run()
+        sys.stdout = sys.__stdout__
+
+    server = ServerClass(**kwargs)
+    server.connect()
+    server.run()
+
+
+def start_server_process(ServerClass: ServerBase,
+                         log_redirect_to,
+                         **kwargs):
+    proc_server = Process(
+        target=run_server,
+        args=[ServerClass, log_redirect_to],
+        kwargs=kwargs
+    )
+    proc_server.daemon = True
+    proc_server.start()
+    return proc_server
 
 
 def interact():
@@ -136,21 +162,31 @@ def interact():
 
 if __name__ == "__main__":
     app_cfg = config()
+    log_redirect_to = \
+        None if app_cfg.noecho_server_log else "stdout"
 
-    proc_action_server = Process(target=run_action_server)
-    proc_action_server.daemon = True
-    proc_action_server.start()
+    proc_action_server = start_server_process(
+        ActionServer, log_redirect_to,
+    )
 
-    proc_language_server = Process(target=run_language_server)
-    proc_language_server.daemon = True
-    proc_language_server.start()
+    proc_language_server = start_server_process(
+        LanguageModelServer, log_redirect_to,
+        model_dir=app_cfg.lm_model_dir
+    )
 
-    proc_speech2text_server = Process(target=run_speech2text_server)
-    proc_speech2text_server.daemon = True
-    proc_speech2text_server.start()
+    proc_speech2text_server = start_server_process(
+        Speech2TextServer, log_redirect_to,
+        model_dir=app_cfg.stt_model_dir
+    )
 
-    proc_tts_server = Process(target=run_tts_server, args=(app_cfg.tts,))
-    proc_tts_server.daemon = True
-    proc_tts_server.start()
+    if app_cfg.tts_engine == "pyttsx3":
+        TtsServerClass = Pyttsx3Server
+    elif app_cfg.tts_engine == "edge-tts":
+        TtsServerClass = EdgettsServer
+    else:
+        TtsServerClass = EdgettsServer
+    proc_tts_server = start_server_process(
+        TtsServerClass, log_redirect_to,
+    )
 
     interact()

@@ -27,16 +27,21 @@ class ClientBase:
         if self.socket:
             self.socket.close()
 
-    def connect(self, retry=5, wait_time=1):
-        for i in range(retry):
+    def connect(self, max_retry=None, wait_time=1):
+        count = 0
+        while max_retry is None or count < max_retry:
             try:
                 self.socket.connect((self.server_ip, self.server_port))
             except Exception as e:
-                self._client_log(f'{e} (Retry={i+1}/{retry})')
+                if max_retry is None:
+                    self._client_log(f'{e} (Retry={count+1}/∞)')
+                else:
+                    self._client_log(f'{e} (Retry={count+1}/{max_retry})')
                 time.sleep(wait_time)
             else:
                 self._client_log("Connected to server")
                 return
+            count += 1
         self._client_log("Failed to connect to server")
 
     def _client_log(self, msg):

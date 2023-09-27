@@ -47,4 +47,4 @@ python app-cli.py
 ## Configuration
 | Description | Flag | Value | Default Value |
 | - | - | - | - |
-| Text-to-Speech Engine | `--tts` | `pyttsx3` or `edge-tts`(Internet connection required) | `pyttsx3` |
+| Text-to-Speech Engine | `--tts.engine` | `pyttsx3` or `edge-tts`(Internet connection required) | `pyttsx3` |

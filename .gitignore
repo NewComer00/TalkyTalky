@@ -2,5 +2,5 @@
 /Lib
 /share
 /pyvenv.cfg
-/audio.wav
+/model
 __pycache__/
