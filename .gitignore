@@ -4,3 +4,5 @@
 /pyvenv.cfg
 /model
 __pycache__/
+/bin
+/lib

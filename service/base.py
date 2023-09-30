@@ -67,6 +67,9 @@ class ServerBase:
     def connect(self, listen_timeout=1):
         self.server_socket = socket.socket(
             socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(
+            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
         self.server_socket.bind((self.server_ip, self.port))
 
         self._server_log(f"Listening on {self.server_ip}:{self.port}")

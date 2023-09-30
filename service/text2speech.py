@@ -84,6 +84,10 @@ class EdgettsServer(Text2SpeechServerBase):
         if platform.system() == 'Windows':
             asyncio.set_event_loop_policy(
                 asyncio.WindowsSelectorEventLoopPolicy())
+        else:
+            # https://stackoverflow.com/a/45600858
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
         loop = asyncio.get_event_loop_policy().get_event_loop()
         try:
             loop.run_until_complete(amain(text, self.voice, mp3_path))
@@ -96,7 +100,10 @@ class EdgettsServer(Text2SpeechServerBase):
 
         # To solve playsound issue: a problem occurred in initializing MCI
         os.close(mp3_fp)
-        playsound(Path(mp3_path).as_uri())
+        if platform.system() == 'Windows':
+            playsound(Path(mp3_path).as_uri())
+        else:
+            playsound(mp3_path)
         os.remove(mp3_path)
 
         response = '[STOP READING]'
