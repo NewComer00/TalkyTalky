@@ -42,9 +42,12 @@ Start the App. If it's the first time you launch the App, it will automatically 
 python app.py
 ```
 
-**Hold the SPACE KEY** to say whatever you want, and **release the SPACE KEY** after you finished. Enjoy the chatting!
+Show help message
+```sh
+python app.py --help
+```
 
-## Configuration
-| Description | Flag | Value | Default Value |
-| - | - | - | - |
-| Text-to-Speech Engine | `--tts.engine` | `pyttsx3` or `edge-tts`(Internet connection required) | `pyttsx3` |
+Launch the App in TUI mode without displaying the servers' log; use [edge-tts](https://pypi.org/project/edge-tts/) Microsoft Edge's online text-to-speech service
+```sh
+python app.py --tui --noecho-server-log --tts.engine edge-tts
+```

@@ -2,9 +2,12 @@ import os
 import sys
 import time
 import wave
+import random
 import readline
 import tempfile
 import argparse
+import threading
+from statistics import mean
 from typing import Optional
 from multiprocessing import Process
 
@@ -15,7 +18,8 @@ from textual import on, work
 from textual.validation import Length
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer
-from textual.widgets import Input, RichLog, LoadingIndicator
+from textual.widgets import Input, RichLog, LoadingIndicator, Button, Sparkline
+from textual.containers import Horizontal
 
 from service.base import ServerBase
 from service.action import ActionServer, ActionClient
@@ -31,7 +35,7 @@ def config():
         "--tui",
         action="store_true",
         dest="tui",
-        help="Do not print the stdout of servers to terminal",
+        help="Start the App in TUI mode",
     )
 
     parser.add_argument(
@@ -182,7 +186,7 @@ class TalkyTalkyCLI:
 
         # Constants for audio settings
         FORMAT = pyaudio.paInt16
-        CHANNELS = 1
+        CHANNELS = 2
         RATE = 44100
         CHUNK = 1024
 
@@ -265,20 +269,9 @@ RichLog:focus {
     background: green 15%;
 }
 
-LoadingIndicator {
-    layer: above;
-    height: 20%;
-    width: 30%;
-    display: none;
-}
-
-.busy {
-    display: block;
-}
-
 Input {
     layer: below;
-    height: 0.3fr;
+    height: 0.2fr;
     border: round darkblue;
     background: blue 10%;
     margin: 1;
@@ -287,6 +280,63 @@ Input {
 Input:focus {
     border: round blue;
     background: blue 15%;
+}
+
+Button {
+    layer: below;
+    height: 0.1fr;
+    width: 1fr;
+    margin: 2;
+    min-height: 1;
+}
+
+#start_record {
+    display: block;
+}
+
+#stop_record {
+    display: none;
+}
+
+LoadingIndicator {
+    layer: above;
+    height: 10%;
+    width: 30%;
+    margin: 2;
+    padding: 1;
+    min-height: 3;
+    display: none;
+    content-align: center middle;
+}
+
+#processing_chat {
+    color: $accent;
+    border: $accent round;
+}
+
+#processing_record {
+    color: $warning;
+    border: $warning round;
+}
+
+Sparkline {
+    layer: above;
+    height: 10%;
+    width: 30%;
+    margin: 2;
+    padding: 1;
+    min-height: 3;
+    display: none;
+    border: $warning round;
+    content-align: center middle;
+}
+
+Sparkline > .sparkline--max-color {
+    color: $error;
+}
+
+Sparkline > .sparkline--min-color {
+    color: $warning;
 }
 '''
 
@@ -302,38 +352,106 @@ Input:focus {
         self.language_model_client.connect()
         self.action_client.connect()
 
+        self.mutex_on_submit = threading.Lock()
+
+        self.is_recording = False
+        self.chunk = 1024
+        self.sample_format = pyaudio.paInt16
+        self.channels = 2
+        self.fs = 44100
+        self.audio = pyaudio.PyAudio()
+        self.stream = self.audio.open(format=self.sample_format,
+                                      channels=self.channels,
+                                      rate=self.fs,
+                                      frames_per_buffer=self.chunk,
+                                      input=True)
         super().__init__()
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Footer()
         yield RichLog(wrap=True, highlight=True, markup=True)
-        yield LoadingIndicator()
         yield Input(placeholder="Write your prompt here. Press ENTER to send.",
                     validate_on=["changed", "submitted"],
-                    validators=[
-                        Length(minimum=1,
-                               failure_description="Your prompt must not be empty.")]).focus()
+                    validators=[Length(minimum=1, failure_description="Your prompt must not be empty.")]).focus()
+        yield Button(label="SPEECH TO TEXT", id="start_record")
+        yield Button(label="FINISH SPEAKING", id="stop_record", variant='warning')
+        yield LoadingIndicator(id="processing_chat")
+        yield LoadingIndicator(id="processing_record")
+        yield Sparkline(data=[], summary_function=mean)
 
     @on(Input.Submitted)
     @work(exclusive=True, thread=True)
     def submit_prompt(self, event: Input.Submitted) -> None:
-        if event.validation_result.is_valid:
-            loading_box = self.query_one(LoadingIndicator)
-            loading_box.add_class("busy")
-            chat_box = self.query_one(RichLog)
+        if self.mutex_on_submit.acquire(blocking=False):
+            if event.validation_result.is_valid:
+                loading_box = self.query_one("#processing_chat")
+                loading_box.display = True
+                chat_box = self.query_one(RichLog)
 
-            me = '[bold red]ME  >> [/bold red]'
-            her = '[bold green]BOT >> [/bold green]'
-            prompt = event.value
-            chat_box.write(me + prompt)
-            self.query_one(Input).value = ''
+                me = '[bold red]ME  >> [/bold red]'
+                her = '[bold green]BOT >> [/bold green]'
+                prompt = event.value
+                chat_box.write(me + prompt)
+                self.query_one(Input).value = ''
 
-            answer = self.language_model_client.get_answer(prompt)
-            chat_box.write(her + answer)
+                answer = self.language_model_client.get_answer(prompt)
+                chat_box.write(her + answer)
 
-            loading_box.remove_class("busy")
-            self.action_client.react_to(answer)
+                loading_box.display = False
+                self.action_client.react_to(answer)
+
+            self.mutex_on_submit.release()
+
+    @on(Button.Pressed, "#start_record")
+    @work(exclusive=True, thread=True)
+    async def start_record(self):
+        if not self.is_recording:
+            self.is_recording = True
+            self.query_one("#start_record").display = False
+            self.query_one("#stop_record").display = True
+
+            frames = []
+            sparkline = self.query_one(Sparkline)
+            self.stream.start_stream()
+            sparkline.display = True
+            while self.is_recording:
+                data = self.stream.read(self.chunk)
+                frames.append(data)
+                sparkline.data = data
+            self.stream.stop_stream()
+            sparkline.display = False
+
+            input_box = self.query_one(Input)
+            loading_box = self.query_one("#processing_record")
+            loading_box.display = True
+            if len(frames) > 0:
+                wav_fp, wav_path = tempfile.mkstemp()
+                wf = wave.open(wav_path, 'wb')
+                wf.setnchannels(self.channels)
+                wf.setsampwidth(self.audio.get_sample_size(self.sample_format))
+                wf.setframerate(self.fs)
+                wf.writeframes(b''.join(frames))
+                wf.close()
+
+                # speech to text
+                print('')
+                prompt = self.speech2text_client.get_text(wav_path)
+                input_box.value = prompt
+                os.close(wav_fp)
+                os.remove(wav_path)
+
+            loading_box.display = False
+            self.query_one("#stop_record").display = False
+            self.query_one("#start_record").display = True
+            input_box.focus()
+
+            await input_box.action_submit()
+
+    @on(Button.Pressed, "#stop_record")
+    def stop_record(self):
+        if self.is_recording:
+            self.is_recording = False
 
 
 if __name__ == "__main__":
