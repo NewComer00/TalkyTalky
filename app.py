@@ -2,8 +2,7 @@ import os
 import sys
 import time
 import wave
-import random
-import readline
+import readline  # keep for arrow keys in input()
 import tempfile
 import argparse
 import threading
@@ -19,7 +18,6 @@ from textual.validation import Length
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer
 from textual.widgets import Input, RichLog, LoadingIndicator, Button, Sparkline
-from textual.containers import Horizontal
 
 from service.base import ServerBase
 from service.action import ActionServer, ActionClient
@@ -269,7 +267,7 @@ RichLog:focus {
     background: green 15%;
 }
 
-Input {
+#prompt_box {
     layer: below;
     height: 0.2fr;
     border: round darkblue;
@@ -277,7 +275,7 @@ Input {
     margin: 1;
 }
 
-Input:focus {
+#prompt_box:focus {
     border: round blue;
     background: blue 15%;
 }
@@ -340,6 +338,9 @@ Sparkline > .sparkline--min-color {
 }
 '''
 
+    BINDINGS = [("d", "toggle_dark", "Toggle dark mode"),
+                ("q", "quit", "Quit")]
+
     def __init__(self, app_cfg):
         self.app_cfg = app_cfg
         start_services(self.app_cfg)
@@ -371,7 +372,8 @@ Sparkline > .sparkline--min-color {
         yield Header()
         yield Footer()
         yield RichLog(wrap=True, highlight=True, markup=True)
-        yield Input(placeholder="Write your prompt here. Press ENTER to send.",
+        yield Input(id="prompt_box",
+                    placeholder="Write your prompt here. Press ENTER to send.",
                     validate_on=["changed", "submitted"],
                     validators=[Length(minimum=1, failure_description="Your prompt must not be empty.")]).focus()
         yield Button(label="SPEECH TO TEXT", id="start_record")
@@ -380,6 +382,12 @@ Sparkline > .sparkline--min-color {
         yield LoadingIndicator(id="processing_record")
         yield Sparkline(data=[], summary_function=mean)
 
+    def action_toggle_dark(self) -> None:
+        """An action to toggle dark mode."""
+        self.dark = not self.dark
+
+    # TODO: After I add id="#prompt_box", input_box.action_submit() does not trigger submit_prompt(), why?
+    # @on(Input.Submitted, "#prompt_box")
     @on(Input.Submitted)
     @work(exclusive=True, thread=True)
     def submit_prompt(self, event: Input.Submitted) -> None:
@@ -393,7 +401,7 @@ Sparkline > .sparkline--min-color {
                 her = '[bold green]BOT >> [/bold green]'
                 prompt = event.value
                 chat_box.write(me + prompt)
-                self.query_one(Input).value = ''
+                self.query_one("#prompt_box").value = ''
 
                 answer = self.language_model_client.get_answer(prompt)
                 chat_box.write(her + answer)
@@ -422,7 +430,7 @@ Sparkline > .sparkline--min-color {
             self.stream.stop_stream()
             sparkline.display = False
 
-            input_box = self.query_one(Input)
+            input_box = self.query_one("#prompt_box")
             loading_box = self.query_one("#processing_record")
             loading_box.display = True
             if len(frames) > 0:
@@ -434,8 +442,6 @@ Sparkline > .sparkline--min-color {
                 wf.writeframes(b''.join(frames))
                 wf.close()
 
-                # speech to text
-                print('')
                 prompt = self.speech2text_client.get_text(wav_path)
                 input_box.value = prompt
                 os.close(wav_fp)
